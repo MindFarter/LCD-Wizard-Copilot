@@ -23,7 +23,9 @@
       { "command": "lcdWizardCopilot.showProjectReport", "title": "LCD Wizard: Show project report" },
       { "command": "lcdWizardCopilot.checkIntegration", "title": "LCD Wizard: Show connectivity context" },
       { "command": "lcdWizardCopilot.openDocs", "title": "LCD Wizard: Open documentation topic" },
-      { "command": "lcdWizardCopilot.selectProject", "title": "LCD Wizard: Select project JSON" }
+      { "command": "lcdWizardCopilot.selectProject", "title": "LCD Wizard: Select project JSON" },
+      { "command": "lcdWizardCopilot.openFormulaBuilder", "title": "LCD Wizard: Open Formula Builder" },
+      { "command": "lcdWizardCopilot.openProjectAssistant", "title": "LCD Wizard: Open Project Assistant" }
     ],
     "configuration": {
       "title": "LCD Wizard Copilot",
@@ -89,6 +91,8 @@
           { "name": "project", "description": "Summarize the selected LCD Wizard project" },
           { "name": "integration", "description": "Review selected board/server connectivity context" },
           { "name": "server", "description": "Plan an integration using the selected LCD Wizard transport" },
+          { "name": "formula", "description": "Open the safe LCD Wizard Formula Builder" },
+          { "name": "assistant", "description": "Open the LCD Wizard Project Assistant" },
           { "name": "docs", "description": "Find official LCD Wizard documentation" }
         ]
       }

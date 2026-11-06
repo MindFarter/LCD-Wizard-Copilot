@@ -2,6 +2,7 @@
 
 const vscode = require('vscode');
 const path = require('path');
+const crypto = require('crypto');
 const { isLcdWizardProject, summarizeProject, renderProjectReport } = require('./lib/project');
 const { summarizeConnectivity, renderConnectivityReport } = require('./lib/connectivity');
 const { TOPICS, renderDocs } = require('./lib/docs');
@@ -122,6 +123,36 @@ async function openDocs() {
   if (selected) await vscode.env.openExternal(vscode.Uri.parse(selected.url));
 }
 
+async function openToolWebview(context, filename, title) {
+  const toolsRoot = vscode.Uri.joinPath(context.extensionUri, 'media', 'tools');
+  const toolUri = vscode.Uri.joinPath(toolsRoot, filename);
+  const panel = vscode.window.createWebviewPanel(
+    'lcdwizard.' + filename.replace(/[^a-z0-9]/gi, '.'),
+    title,
+    vscode.ViewColumn.One,
+    { enableScripts: true, localResourceRoots: [toolsRoot] }
+  );
+  const nonce = crypto.randomBytes(18).toString('base64');
+  let html = Buffer.from(await vscode.workspace.fs.readFile(toolUri)).toString('utf8');
+  if (filename === 'lcd-wizard-formula-builder.html') {
+    const evaluator = panel.webview.asWebviewUri(vscode.Uri.joinPath(toolsRoot, 'formula-evaluator.js'));
+    html = html.replace('src="formula-evaluator.js"', `src="${evaluator}"`);
+  }
+  html = html.replace(/<script(?![^>]*\bsrc=)([^>]*)>/gi, `<script nonce="${nonce}"$1>`);
+  const policy = `default-src 'none'; script-src 'nonce-${nonce}' ${panel.webview.cspSource}; style-src 'unsafe-inline'; img-src ${panel.webview.cspSource} data:; font-src ${panel.webview.cspSource}; connect-src 'none'; base-uri 'none'; form-action 'none'`;
+  html = html.replace(/<head>/i, `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`);
+  panel.webview.html = html;
+  return panel;
+}
+
+function openFormulaBuilder(context) {
+  return openToolWebview(context, 'lcd-wizard-formula-builder.html', 'LCD Wizard Formula Builder');
+}
+
+function openProjectAssistant(context) {
+  return openToolWebview(context, 'lcd_wizard_project_assistant.html', 'LCD Wizard Project Assistant');
+}
+
 function toolResult(text) {
   return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(text)]);
 }
@@ -173,6 +204,16 @@ function registerChatParticipant(context) {
         stream.markdown(renderDocs(request.prompt || 'all'));
         return;
       }
+      if (request.command === 'formula') {
+        await openFormulaBuilder(context);
+        stream.markdown('Opened the LCD Wizard Formula Builder in a local webview.');
+        return;
+      }
+      if (request.command === 'assistant') {
+        await openProjectAssistant(context);
+        stream.markdown('Opened the LCD Wizard Project Assistant in a local webview.');
+        return;
+      }
 
       const [project, integration] = await Promise.all([projectReportText(), integrationReportText()]);
       const instructions = [
@@ -214,7 +255,9 @@ function activate(context) {
       vscode.commands.registerCommand('lcdWizardCopilot.showProjectReport', showProjectReport),
       vscode.commands.registerCommand('lcdWizardCopilot.checkIntegration', checkIntegration),
       vscode.commands.registerCommand('lcdWizardCopilot.openDocs', openDocs),
-      vscode.commands.registerCommand('lcdWizardCopilot.selectProject', selectProject)
+      vscode.commands.registerCommand('lcdWizardCopilot.selectProject', selectProject),
+      vscode.commands.registerCommand('lcdWizardCopilot.openFormulaBuilder', () => openFormulaBuilder(context)),
+      vscode.commands.registerCommand('lcdWizardCopilot.openProjectAssistant', () => openProjectAssistant(context))
   );
   registerTools(context);
   registerChatParticipant(context);

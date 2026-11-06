@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!-- LCD Wizard Formula Builder. MIT licence, see LICENSE. Unofficial community tool, a gift to LCD Wizard users. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LCD Wizard Formula Builder</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f7f9f8;--card:#fff;--ink:#17211d;--mut:#5b6b64;--line:#d5ded9;--acc:#0b7a5a;--accink:#fff;--code:#eef4f1;--bad:#b3261e;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101614;--card:#18211e;--ink:#e6efeb;--mut:#9bb0a7;--line:#2c3a35;--acc:#3fcf9f;--accink:#06231a;--code:#0e1513;--bad:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101614;--card:#18211e;--ink:#e6efeb;--mut:#9bb0a7;--line:#2c3a35;--acc:#3fcf9f;--accink:#06231a;--code:#0e1513;--bad:#ff8a80;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 4px}
+p.sub{color:var(--mut);margin:0 0 18px}
+.grid{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:800px){.grid{grid-template-columns:1fr 1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:12px 0 4px}
+select,input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+input[type=color]{width:56px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:2px}
+.row{display:flex;gap:10px;align-items:end}.row>div{flex:1}
+.hint{font-size:.8rem;color:var(--mut);margin-top:3px}
+.out{font:1.05rem/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px;word-break:break-all;min-height:48px}
+button{background:var(--acc);color:var(--accink);border:0;border-radius:8px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;margin-top:10px}
+button.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+h2{font-size:1.05rem;margin:0 0 4px}
+.where{background:var(--code);border-left:3px solid var(--acc);padding:8px 12px;border-radius:0 8px 8px 0;font-size:.9rem;margin-top:12px}
+.res{font:600 1.1rem ui-monospace,Menlo,Consolas,monospace;margin-top:8px}
+.err{color:var(--bad);font-size:.9rem}
+.sw{display:inline-block;width:18px;height:18px;border-radius:4px;vertical-align:middle;border:1px solid var(--line);margin-left:8px}
+.tests{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.tests label{margin:6px 0 2px}
+</style>
+</head>
+<body>
+<main>
+<h1>LCD Wizard Formula Builder</h1>
+<p class="sub">Pick what you want to do, fill in the boxes, then copy the formula into LCD Wizard. Built from the Variables and bindings page of the LCD Wizard docs.</p>
+<div class="grid">
+ <section class="card">
+  <h2>1. What do you want to do?</h2>
+  <select id="recipe" aria-label="Recipe"></select>
+  <div class="hint" id="rdesc"></div>
+  <label>Where will you paste it?</label>
+  <select id="ctx">
+   <option value="raw">A variable’s Formula, or a binding’s Formula (uses raw)</option>
+   <option value="name">A condition, Alarm, or Condition changes automation (uses names)</option>
+  </select>
+  <div class="hint">In a variable’s or binding’s formula the reading is called <b>raw</b>. A condition has no reading, so it uses the variable’s own name.</div>
+  <h2 style="margin-top:18px">2. Fill in the details</h2>
+  <div id="fields"></div>
+ </section>
+ <section class="card">
+  <h2>3. Your formula</h2>
+  <div class="out" id="out" aria-live="polite"></div>
+  <button id="copy">Copy formula</button> <span id="copied" class="hint"></span>
+  <div class="where" id="where"></div>
+  <h2 style="margin-top:18px">4. Test it</h2>
+  <div class="hint">Type sample values to check the answer before you paste.</div>
+  <div class="tests" id="tests"></div>
+  <div class="res" id="res"></div>
+  <div class="err" id="err"></div>
+ </section>
+</div>
+</main>
+<script src="formula-evaluator.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const nm=v=>($('ctx').value==='raw'?'raw':(v||'var'));
+const n=x=>{x=parseFloat(x);return isNaN(x)?0:+x.toFixed(6)};
+const hex=c=>'0x'+c.slice(1).toUpperCase();
+const safeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const validName=/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const OPS=['>','>=','<','<=','==','!='];
+const num=(k,l,d,h)=>({k,l,t:'num',d,h});
+const vr=(k,l,d)=>({k,l,t:'var',d});
+const sel=(k,l,o,d)=>({k,l,t:'sel',o,d:d||o[0]});
+const col=(k,l,d)=>({k,l,t:'col',d});
+const R=[
+{id:'map',title:'Scale a reading to a range (map)',desc:'Turn a raw sensor range into a different range, e.g. ADC 0–4095 into 0–100.',
+ raw:1,where:'Put it in the variable’s Formula box on the Data tab, or in a binding’s Formula.',
+ f:[vr('v','Variable name','sensor'),num('a','Input minimum',0),num('b','Input maximum',4095),num('c','Output minimum',0),num('d','Output maximum',100),sel('lim','Stop it going outside the output range?',['Yes','No'])],
+ b:v=>{const m=`map(${nm(v.v)}, ${n(v.a)}, ${n(v.b)}, ${n(v.c)}, ${n(v.d)})`;return v.lim==='Yes'?`constrain(${m}, ${Math.min(n(v.c),n(v.d))}, ${Math.max(n(v.c),n(v.d))})`:m}},
+{id:'conv',title:'Convert units or apply a calibration',desc:'Multiply and add, or pick a ready-made conversion.',raw:1,
+ where:'Put it in the variable’s Formula box. For a calibration offset you can tune at runtime, tick Save to settings on the offset variable.',
+ f:[vr('v','Variable name','sensor'),sel('p','Conversion',['Custom (multiply then add)','°C to °F','°F to °C','kPa to psi','psi to kPa','bar to kPa','mm to inches','inches to mm','g to oz']),num('m','Custom: multiply by',1),num('o','Custom: then add',0)],
+ b:v=>{const x=nm(v.v);const P={'°C to °F':`${x} * 9 / 5 + 32`,'°F to °C':`(${x} - 32) * 5 / 9`,'kPa to psi':`${x} * 0.145038`,'psi to kPa':`${x} * 6.89476`,'bar to kPa':`${x} * 100`,'mm to inches':`${x} / 25.4`,'inches to mm':`${x} * 25.4`,'g to oz':`${x} / 28.3495`};
+  if(P[v.p])return P[v.p];const o=n(v.o);return `${x} * ${n(v.m)}`+(o?` ${o<0?'-':'+'} ${Math.abs(o)}`:'')}},
+{id:'pct',title:'Percentage of a maximum',desc:'Show a value as 0–100 % of full scale.',raw:1,where:'Variable or binding Formula; handy for bars and arcs.',
+ f:[vr('v','Variable name','level'),num('mx','Full-scale value',100)],b:v=>`constrain(${nm(v.v)} / ${n(v.mx)||1} * 100, 0, 100)`},
+{id:'lim',title:'Limit a value to a range (constrain)',desc:'Keep a value between a lowest and highest.',raw:1,where:'Variable or binding Formula.',
+ f:[vr('v','Variable name','value'),num('lo','Lowest',0),num('hi','Highest',100)],b:v=>`constrain(${nm(v.v)}, ${n(v.lo)}, ${n(v.hi)})`},
+{id:'cond',title:'Boolean condition (true or false)',desc:'A condition for a Boolean variable or a Condition changes automation.',
+ where:'Use in Automations → Condition changes → Condition, or as the Formula of a Boolean variable with a Constant or formula source.',
+ f:[vr('v','Variable','tension'),sel('o','Is',OPS),num('t','Than',80),sel('j','Add a second condition?',['No','AND (&&)','OR (||)']),vr('v2','Second variable','temp'),sel('o2','Is',OPS),num('t2','Than',30)],
+ b:v=>{let s=`${v.v||'var'} ${v.o} ${n(v.t)}`;if(v.j!=='No')s+=` ${v.j.startsWith('AND')?'&&':'||'} ${v.v2||'var'} ${v.o2} ${n(v.t2)}`;return s}},
+{id:'between',title:'Inside or outside a range',desc:'True when a value is within (or beyond) two limits.',where:'Condition changes automation or Boolean variable Formula.',
+ f:[vr('v','Variable','temp'),num('lo','Lower limit',10),num('hi','Upper limit',30),sel('m','True when',['Inside the range','Outside the range'])],
+ b:v=>v.m.startsWith('Inside')?`${v.v||'var'} >= ${n(v.lo)} && ${v.v||'var'} <= ${n(v.hi)}`:`${v.v||'var'} < ${n(v.lo)} || ${v.v||'var'} > ${n(v.hi)}`},
+{id:'colour',title:'Choose a colour from a value',desc:'For a binding driving Background colour, Text colour or an LED’s colour.',raw:1,
+ where:'Select the widget → Data bindings → Drives: Background colour (or Text colour / LED colour) → Formula.',
+ f:[vr('v','Variable name','battery'),sel('m','Style',['On/off (two colours)','One threshold (two colours)','Two thresholds (three colours)']),num('t1','Threshold 1',15),num('t2','Threshold 2',50),col('c1','Colour 1 (low / on)','#ff0000'),col('c2','Colour 2','#ffc000'),col('c3','Colour 3 (high / off)','#00c000')],
+ b:v=>{const x=nm(v.v),a=hex(v.c1),b=hex(v.c2),c=hex(v.c3);if(v.m.startsWith('On'))return `${x} ? ${a} : ${c}`;if(v.m.startsWith('One'))return `${x} < ${n(v.t1)} ? ${a} : ${c}`;return `${x} < ${n(v.t1)} ? ${a} : ${x} < ${n(v.t2)} ? ${b} : ${c}`}},
+{id:'rate',title:'Rate of change',desc:'How fast a variable is rising or falling.',
+ where:'Variable Formula (source Constant or formula) or binding. delta() works on a variable name, never on raw, so use this in a separate variable. LCD Wizard refreshes about every 100 ms, so the numbers below assume that.',
+ f:[vr('v','Variable','pressure'),sel('p','Change per',['refresh (about 0.1 s)','second','minute','hour'])],
+ b:v=>{const k={r:1,s:10,m:600,h:36000}[v.p[0]==='r'?'r':v.p[0]==='s'?'s':v.p[0]==='m'?'m':'h'];return k===1?`delta(${v.v||'var'})`:`delta(${v.v||'var'}) * ${k}`}},
+{id:'two',title:'Combine two variables',desc:'Difference, sum, average, ratio, larger or smaller of two values.',where:'Variable Formula (source Constant or formula), or binding Formula.',
+ f:[vr('a','First variable','temp_in'),sel('o','Operation',['Difference (a - b)','Sum (a + b)','Average','Ratio (a / b)','Larger','Smaller']),vr('b','Second variable','temp_out'),num('k','Then multiply by (1 = leave)',1)],
+ b:v=>{const a=v.a||'a',b=v.b||'b';const e={D:`(${a} - ${b})`,S:`(${a} + ${b})`,A:`(${a} + ${b}) / 2`,R:`${a} / ${b}`,L:`max(${a}, ${b})`,m:`min(${a}, ${b})`};
+  let s=v.o[0]==='D'?e.D:v.o[0]==='S'?e.S:v.o[0]==='A'?e.A:v.o[0]==='R'?e.R:v.o==='Larger'?e.L:e.m;return n(v.k)===1?s:(/^\(.*\)$/.test(s)||/^(max|min)/.test(s)?s:`(${s})`)+` * ${n(v.k)}`}},
+{id:'tilt',title:'Tilt angle from an accelerometer (IMU)',desc:'Pitch, roll or tilt-from-level from three accel axes.',
+ where:'Make variables ax, ay, az from the IMU’s Accel X/Y/Z channels, then a new variable with source Constant or formula and this formula. If the angle goes the wrong way, tick “Reverse”.',
+ f:[sel('w','Angle',['Pitch (-90 to 90)','Roll (-180 to 180)','Tilt from level (0 to 180)']),vr('ax','X axis variable','ax'),vr('ay','Y axis variable','ay'),vr('az','Z axis variable','az'),sel('rev','Reverse direction?',['No','Yes'])],
+ b:v=>{const X=v.ax||'ax',Y=v.ay||'ay',Z=v.az||'az',s=v.rev==='Yes'?'-':'';if(v.w.startsWith('Pitch'))return `degrees(atan2(${s}${X}, sqrt(${Y}*${Y} + ${Z}*${Z})))`;if(v.w.startsWith('Roll'))return `degrees(atan2(${s}${Y}, ${Z}))`;return `degrees(atan2(hypot(${X}, ${Y}), ${s}${Z}))`}}
+];
+const cur=()=>R.find(r=>r.id===$('recipe').value);
+let vals={};
+R.forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=r.title;$('recipe').appendChild(o)});
+function syncContext(){const raw=Boolean(cur().raw);$('ctx').disabled=!raw;if(!raw)$('ctx').value='name'}
+function buildForm(){const r=cur();$('rdesc').textContent=r.desc;$('where').innerHTML='<b>Where to paste:</b> '+r.where;
+ vals={};const box=$('fields');box.innerHTML='';
+ r.f.forEach(f=>{vals[f.k]=f.d;const w=document.createElement('div');const l=document.createElement('label');l.textContent=f.l;w.appendChild(l);let e;
+  if(f.t==='sel'){e=document.createElement('select');f.o.forEach(o=>{const op=document.createElement('option');op.textContent=o;e.appendChild(op)});e.value=f.d}
+  else{e=document.createElement('input');e.type=f.t==='num'?'number':f.t==='col'?'color':'text';e.value=f.d;if(f.t==='num')e.step='any';if(f.t==='var'){e.setAttribute('autocapitalize','off');e.spellcheck=false}}
+  e.oninput=e.onchange=()=>{vals[f.k]=e.value;update()};w.appendChild(e);box.appendChild(w)});
+ update()}
+let testVals={};
+function validationError(r){
+ if($('ctx').value==='name')for(const f of r.f)if(f.t==='var'&&vals[f.k]&&!validName.test(vals[f.k]))return 'Use a variable name with letters, numbers, underscores, and optional dotted fields.';
+ if(r.id==='map'&&n(vals.a)===n(vals.b))return 'The input minimum and maximum must be different.';
+ if((r.id==='lim'||r.id==='between')&&n(vals.lo)>n(vals.hi))return 'The lower limit must not be greater than the upper limit.';
+ if(r.id==='colour'&&vals.m.startsWith('Two')&&n(vals.t1)>=n(vals.t2))return 'Threshold 1 must be lower than threshold 2.';
+ return '';
+}
+function update(){const r=cur();let s='';const error=validationError(r);if(error){$('out').textContent='';$('copied').textContent='';buildTests('');$('err').textContent=error;return}
+ try{s=r.b(vals)}catch(e){$('out').textContent='';$('copied').textContent='';buildTests('');$('err').textContent=e.message;return}
+ $('out').textContent=s;$('copied').textContent='';buildTests(s)}
+function buildTests(s){const box=$('tests');
+ const refs=s?LCDWizardFormula.variablesIn(s):{variables:[],previous:[]};
+ const need=refs.variables.map(i=>[i,'v']).concat(refs.previous.map(i=>[i,'p']));
+ box.innerHTML='';need.forEach(([i,k])=>{const key=k+':'+i;if(!(key in testVals))testVals[key]=50;
+  const w=document.createElement('div');const l=document.createElement('label');l.textContent=k==='p'?i+' (previous refresh)':i;const e=document.createElement('input');e.type='number';e.step='any';e.value=testVals[key];
+  e.oninput=()=>{testVals[key]=e.value;run(s)};w.appendChild(l);w.appendChild(e);box.appendChild(w)});run(s)}
+function run(s){$('err').textContent='';const result=$('res');result.replaceChildren();if(!s)return;
+ try{const current={},previous={};Object.keys(testVals).forEach(k=>{const type=k[0],name=k.slice(2),value=parseFloat(testVals[k]);(type==='p'?previous:current)[name]=Number.isFinite(value)?value:0});
+  const out=LCDWizardFormula.evaluate(s,current,previous);const shown=typeof out==='number'?Number(out.toFixed(4)):String(out);result.appendChild(document.createTextNode('Result: '+shown));
+  if(/0x[0-9a-fA-F]{6}/.test(s)&&Number.isInteger(out)&&out>=0&&out<=16777215){const hx='#'+out.toString(16).padStart(6,'0');result.appendChild(document.createTextNode(' ('+hx+') '));const swatch=document.createElement('span');swatch.className='sw';swatch.style.backgroundColor=hx;result.appendChild(swatch)}
+ }catch(e){$('err').textContent='Could not work this out: '+e.message}}
+$('copy').onclick=async()=>{const t=$('out').textContent;try{await navigator.clipboard.writeText(t);$('copied').textContent='Copied.'}catch(e){const r=document.createRange();r.selectNodeContents($('out'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('copied').textContent='Selected. Press Ctrl+C.'}};
+$('recipe').onchange=()=>{syncContext();buildForm()};$('ctx').onchange=update;
+syncContext();
+buildForm();
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<!-- MIT licensed; see the LICENSE file in the LCD Wizard Copilot project. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LCD Wizard Project Assistant</title>
+<style>
+:root{--bg:#0d1220;--panel:#161d2d;--panel2:#1e2739;--line:#2d3a55;--text:#e9eef8;--muted:#9db0ca;--accent:#59d1ff;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Arial}
+header{padding:20px;background:linear-gradient(90deg,#122036,#182c48);border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:22px}header p{margin:7px 0 0;color:var(--muted)}
+main{max-width:1100px;margin:auto;padding:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:17px;color:var(--accent)}
+h3{margin:18px 0 8px;font-size:14px;color:var(--muted)}
+button{background:#25618a;color:#fff;border:0;border-radius:9px;padding:9px 14px;font:inherit;cursor:pointer}
+button.secondary{background:#2b3850}button.selected{background:#1d7a4f}
+.choice{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px;margin:8px 0;cursor:pointer}
+.choice:hover{border-color:var(--accent)}
+.choice.selected{border-color:var(--ok);background:#183527}
+.choice strong{display:block}.choice span{color:var(--muted);font-size:13px}
+label{display:block;color:var(--muted);font-size:12px;margin:10px 0 4px}
+input,select,textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}
+textarea{min-height:70px;resize:vertical}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.hidden{display:none}
+#plan{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;background:#0a0f19;border:1px solid var(--line);border-radius:10px;padding:14px;max-height:none;overflow:auto}
+.nav{display:flex;gap:10px;justify-content:space-between;margin-top:12px}
+.pill{display:inline-block;background:#22374f;color:#bfe4ff;border-radius:99px;padding:3px 10px;font-size:12px;margin:2px}
+.explain{background:#101a2b;border-left:3px solid var(--accent);padding:10px 12px;border-radius:6px;color:#cfe2f5;margin:10px 0;font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+<h1>LCD Wizard Project Assistant</h1>
+<p>Answer simple questions about what you want your display to do. This assistant tells you what to add in LCD Wizard, which fields to fill in, and why.</p>
+</header>
+<main>
+<div class="card">
+<h2>1. What should the display do?</h2>
+<p>Choose everything that applies. You can change these later.</p>
+<div id="goals"></div>
+</div>
+
+<div class="card">
+<h2>2. What hardware will you use?</h2>
+<div class="row">
+<div><label>Which board are you using?</label><select id="board"><option>ESP32</option><option>ESP32-S2</option><option>ESP32-S3</option><option>ESP32-C3</option><option>ESP32-C5</option><option>ESP32-C6</option><option>ESP32-P4</option><option>STM32</option><option>RP2040 / Raspberry Pi Pico</option><option>Other / not sure</option></select></div>
+<div><label>Display size</label><select id="display"><option>Small, 1.8–2.4 inch</option><option>Medium, 2.8–3.5 inch</option><option>Large, 4–7 inch</option><option>Not sure</option></select></div>
+</div>
+<div class="row">
+<div><label>Touchscreen?</label><select id="touch"><option>Yes, resistive</option><option>Yes, capacitive</option><option>No</option><option>Not sure</option></select></div>
+<div><label>How will the board connect to the internet?</label><select id="connectivity"><option>Wi-Fi</option><option>Ethernet</option><option>No internet needed</option><option>Not sure</option></select></div>
+</div>
+<div id="hardwareChoices"></div>
+</div>
+
+<div class="card">
+<h2>3. Details for what you selected</h2>
+<div id="questions"></div>
+</div>
+
+<div class="card">
+<h2>4. Your LCD Wizard build plan</h2>
+<button id="buildPlanButton">Create my step-by-step plan</button>
+<div id="plan" style="margin-top:12px">Answer the questions above, then press <strong>Create my step-by-step plan</strong>.</div>
+</div>
+</main>
+
+<script>
+const goals=[
+{id:'show_sensor',title:'Show readings from a sensor',desc:'Temperature, humidity, pressure, distance, light, battery, current, etc.'},
+{id:'control_output',title:'Control something',desc:'Relay, fan, pump, light, heater, buzzer, LED, motor.'},
+{id:'set_value',title:'Let me set a value on screen',desc:'Target temperature, brightness, speed, timer, threshold.'},
+{id:'buttons',title:'Use physical buttons or a rotary encoder',desc:'Change screens, adjust values, start/stop something.'},
+{id:'mqtt',title:'Connect to Home Assistant / MQTT',desc:'Show values from Home Assistant or send commands to it.'},
+{id:'alarms',title:'Warn me when something happens',desc:'A variable or condition crosses a limit, becomes stale, or changes state.'},
+{id:'save_settings',title:'Remember settings after power off',desc:'Setpoints, brightness, calibration values, last chosen mode.'},
+{id:'internet_data',title:'Show data from the internet',desc:'Weather, time, prices, API data.'}
+];
+const hardware=[
+{id:'i2c_sensor',title:'I2C sensor',desc:'BME280, SHT31, BMP280, INA219, ADS1115, etc.'},
+{id:'spi_sensor',title:'SPI sensor / module',desc:'Some sensors and modules use SPI.'},
+{id:'relay',title:'Relay or digital output',desc:'Switch a fan, pump, light, heater or other low-voltage load.'},
+{id:'pwm',title:'PWM output',desc:'LED brightness, fan speed, motor/dimmer control.'},
+{id:'button',title:'Physical button',desc:'A push button connected to a GPIO pin.'},
+{id:'encoder',title:'Rotary encoder',desc:'A knob that turns and may also press.'},
+{id:'analog',title:'Analog sensor',desc:'Potentiometer, LDR, voltage divider, current sensor.'},
+{id:'mqtt_device',title:'MQTT / Home Assistant connection',desc:'Read values from and send commands to Home Assistant.'}
+];
+const selectedGoals=new Set(),selectedHardware=new Set();
+const answers={sensorName:'',sensorType:'Temperature',units:'°C',decimals:'1',poll:'1',outputName:'Fan relay',outputPin:'',activeLow:'No',setValueName:'Target',setValueDefault:'22',setValueMin:'16',setValueMax:'30',setValueUnit:'°C',buttonPin:'',buttonAction:'Change screen',encoderVariable:'Brightness',encoderStep:'5',analogName:'Battery voltage',analogPin:'',analogFormula:'raw * 0.0041',mqttTopic:'',mqttVariable:'temperature',mqttCommandTopic:'',alarmVariable:'temperature',alarmCondition:'temperature > 30',alarmMessage:'Too hot!',alarmRepeat:'60',settingsKey:'target_temperature'};
+
+function renderGoals(){
+document.getElementById('goals').innerHTML=goals.map(g=>`<button class="choice ${selectedGoals.has(g.id)?'selected':''}" data-group="goals" data-id="${g.id}"><strong>${g.title}</strong><span>${g.desc}</span></button>`).join('');
+document.getElementById('hardwareChoices').innerHTML=hardware.map(h=>`<button class="choice ${selectedHardware.has(h.id)?'selected':''}" data-group="hardware" data-id="${h.id}"><strong>${h.title}</strong><span>${h.desc}</span></button>`).join('');
+renderQuestions();
+}
+function toggle(group,id){const set=group==='goals'?selectedGoals:selectedHardware;set.has(id)?set.delete(id):set.add(id);renderGoals()}
+document.querySelector('main').addEventListener('click',event=>{const button=event.target.closest('button.choice[data-group][data-id]');if(button)toggle(button.dataset.group,button.dataset.id)});
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function q(label,key,ph,type='text'){return `<label>${esc(label)}</label><input data-k="${esc(key)}" type="${esc(type)}" value="${esc(answers[key]||'')}" placeholder="${esc(ph)}">`}
+function qs(label,key,opts){return `<label>${label}</label><select data-k="${key}">${opts.map(o=>`<option ${answers[key]===o?'selected':''}>${o}</option>`).join('')}</select>`}
+function renderQuestions(){
+let h='';
+if(selectedGoals.has('show_sensor')||selectedHardware.has('i2c_sensor')||selectedHardware.has('spi_sensor')||selectedHardware.has('analog')){
+h+=`<h3>Sensor / reading</h3><div class="row">${q('What are you measuring?','sensorType','Temperature, humidity, battery…')}${q('What should the variable be called?','sensorName','temperature')}${q('Units','units','°C, %, V…')}${q('Decimal places','decimals','1')}${q('Read it every… seconds','poll','1')}</div>`;
+if(selectedHardware.has('analog'))h+=`<div class="row">${q('Analog input name','analogName','Battery voltage')}${q('GPIO pin','analogPin','GPIO34')}${q('Conversion formula','analogFormula','raw * 0.0041')}</div><div class="explain">For an analog sensor, LCD Wizard reads a raw ADC value. You normally need a formula to turn that raw number into volts, percent, temperature, or another useful unit.</div>`;
+}
+if(selectedGoals.has('control_output')||selectedHardware.has('relay')||selectedHardware.has('pwm')){
+h+=`<h3>Thing to control</h3><div class="row">${q('What are you controlling?','outputName','Fan relay')}${q('GPIO pin','outputPin','GPIO26')}${qs('Is it active low?','activeLow',['No','Yes'])}</div><div class="explain">Many relay boards turn on when their input pin is pulled low. If yours behaves that way, choose <strong>Yes</strong> for active low.</div>`;
+}
+if(selectedGoals.has('set_value')){
+h+=`<h3>Value you want to set</h3><div class="row">${q('What is it called?','setValueName','Target')}${q('Starting value','setValueDefault','22')}${q('Minimum','setValueMin','16')}${q('Maximum','setValueMax','30')}${q('Unit','setValueUnit','°C')}</div>`;
+}
+if(selectedGoals.has('buttons')||selectedHardware.has('button')){
+h+=`<h3>Button</h3><div class="row">${q('Button GPIO pin','buttonPin','GPIO4')}${qs('What should it do?','buttonAction',['Change screen','Toggle a relay','Start / stop something','Send MQTT command','Other'])}</div>`;
+}
+if(selectedHardware.has('encoder')){
+h+=`<h3>Rotary encoder</h3><div class="row">${q('Which value should it adjust?','encoderVariable','Brightness')}${q('Change per click','encoderStep','5')}</div>`;
+}
+if(selectedGoals.has('mqtt')||selectedHardware.has('mqtt_device')){
+h+=`<h3>MQTT / Home Assistant</h3><div class="row">${q('Topic to listen to','mqttTopic','home/livingroom/temperature')}${q('Variable name','mqttVariable','temperature')}${q('Topic to publish commands to','mqttCommandTopic','home/livingroom/fan/set')}</div>`;
+}
+if(selectedGoals.has('alarms')){
+h+=`<h3>Alarm</h3><div class="row">${q('Which variable should it watch?','alarmVariable','temperature')}${q('When should it trigger?','alarmCondition','temperature > 30')}${q('Warning message','alarmMessage','Too hot!')}${q('Repeat every… seconds','alarmRepeat','60')}</div>`;
+}
+if(selectedGoals.has('save_settings')){
+h+=`<h3>Setting to remember</h3><div class="row">${q('Settings key','settingsKey','target_temperature')}</div>`;
+}
+document.getElementById('questions').innerHTML=h||'<div class="explain">Choose at least one goal or hardware item above.</div>';
+document.querySelectorAll('#questions [data-k]').forEach(el=>el.oninput=()=>answers[el.dataset.k]=el.value);
+}
+
+function buildPlan(){
+const board=document.getElementById('board').value,display=document.getElementById('display').value,touch=document.getElementById('touch').value,net=document.getElementById('connectivity').value;
+let p=`LCD WIZARD BUILD PLAN\n=====================\nBoard: ${board}\nDisplay: ${display}\nTouch: ${touch}\nConnectivity: ${net}\n\n`;
+p+='START HERE\n----------\n1. Create or open your LCD Wizard project.\n2. Open the Hardware tab first. Choose your board and display.\n3. Configure touch only if your display has a touchscreen.\n4. Add buses and devices before creating variables that read them.\n\n';
+if(selectedHardware.has('i2c_sensor')){
+p+=`HARDWARE → BUSES\n----------------\nAdd an I2C bus.\n- Name: I2C Sensors\n- Type: I2C\n- SDA: the SDA pin on your board\n- SCL: the SCL pin on your board\n\nWhy: I2C sensors share two wires, SDA and SCL. The display and sensor can often share the same bus, but check your board documentation for safe pins.\n\nHARDWARE → DEVICES\n------------------\nAdd your sensor.\n- Name: ${answers.sensorName||'sensor'}\n- Type: choose the exact sensor from the list, for example BME280, SHT31, BMP280 or INA219\n- Bus: I2C Sensors\n- Address: use the address printed in the sensor documentation; BME280 is commonly 0x76 or 0x77\n- Poll every: ${answers.poll||'1'} seconds\n\nWhy: the device reads the physical sensor. Its channels then become available as sources for variables.\n\n`;
+}
+if(selectedHardware.has('spi_sensor')){
+p+=`HARDWARE → BUSES\n----------------\nAdd an SPI bus if your sensor or module uses SPI.\n- Name: SPI Devices\n- Type: SPI\n- SCK, MOSI and MISO: use the pins required by your board\n\nHARDWARE → DEVICES\n------------------\nAdd the SPI device.\n- Name: ${answers.sensorName||'sensor'}\n- Type: choose the matching device type\n- Bus: SPI Devices\n- CS: choose a free GPIO pin\n- Poll every: ${answers.poll||'1'} seconds\n\nWhy: SPI devices normally need a separate Chip Select pin so the board knows which device to talk to.\n\n`;
+}
+if(selectedHardware.has('analog')){
+p+=`HARDWARE → I/O\n--------------\nAdd an analog input.\n- Name: ${answers.analogName||'ADC input'}\n- Pin: ${answers.analogPin||'choose an ADC-capable GPIO'}\n\nDATA → VARIABLES\n----------------\nAdd a variable for the converted reading.\n- Name: ${answers.sensorName||'value'}\n- Type: Float\n- Source: Analog input\n- Formula: ${answers.analogFormula||'raw * scale factor'}\n- Unit: ${answers.units||''}\n- Decimals: ${answers.decimals||'1'}\n\nWhy: the analog pin gives a raw number. The formula converts that number into a meaningful unit.\n\n`;
+}
+if(selectedGoals.has('show_sensor')){
+p+=`DATA → VARIABLES\n----------------\nAdd the reading variable.\n- Name: ${answers.sensorName||'temperature'}\n- Type: Float\n- Source: Peripheral channel\n- Device: your sensor device\n- Signal: choose the channel you want, such as temperature, humidity or pressure\n- Unit: ${answers.units||'°C'}\n- Decimals: ${answers.decimals||'1'}\n\nSCREEN → WIDGET BINDING\n-----------------------\nAdd a Label widget for the reading.\n- Select the label.\n- Open its Text property.\n- Bind it to: ${answers.sensorName||'temperature'}\n- Direction: Variable → widget\n- Format: %.${answers.decimals||'1'}f\n- Postfix: ${answers.units?' '+answers.units:''}\n\nWhy: the variable holds the number; the binding decides where it appears and how it is formatted.\n\n`;
+}
+if(selectedGoals.has('set_value')){
+p+=`DATA → VARIABLES\n----------------\nAdd the value the user can change.\n- Name: ${answers.setValueName||'target'}\n- Type: Float\n- Source: Constant\n- Initial value: ${answers.setValueDefault||'22'}\n- Minimum: ${answers.setValueMin||''}\n- Maximum: ${answers.setValueMax||''}\n${selectedGoals.has('save_settings')?`- Tick: Save to settings\n- Settings key: ${answers.settingsKey||'target'}\n`:''}\nSCREEN → WIDGET BINDING\n-----------------------\nAdd a Slider widget.\n- Bind its Value property to: ${answers.setValueName||'target'}\n- Direction: Both ways\n\nWhy: “Both ways” means moving the slider changes the variable, and if the variable changes elsewhere the slider updates too.\n\n`;
+}
+if(selectedGoals.has('control_output')||selectedHardware.has('relay')){
+p+=`HARDWARE → I/O\n--------------\nAdd a digital output.\n- Name: ${answers.outputName||'Relay'}\n- Pin: ${answers.outputPin||'choose a free GPIO'}\n- Active low: ${answers.activeLow||'No'}\n\nDATA → VARIABLES\n----------------\nAdd a Boolean variable for the on/off decision.\n- Name: ${answers.outputName?answers.outputName.toLowerCase().replace(/[^a-z0-9]+/g,'_'):'output'}_on\n- Type: Boolean\n- Source: (set by events only)\n\nDATA → AUTOMATIONS\n------------------\nAdd an automation called “Control ${answers.outputName||'output'}”.\n- Trigger: Variable changes\n- Variable: the Boolean variable above\n- Action: Set digital output\n- Output: ${answers.outputName||'Relay'}\n- Mode: Activate when true, Deactivate when false\n\nWhy: the Boolean variable is the decision. The automation turns that decision into an actual pin state.\n\n`;
+if(selectedGoals.has('show_sensor')){
+p+=`Example decision formula\n------------------------\nIf you want the ${answers.outputName||'output'} on when ${answers.sensorName||'temperature'} is above ${answers.setValueDefault||'28'}:\n\n  ${answers.sensorName||'temperature'} > ${answers.setValueDefault||'28'}\n\nUse this formula in the Boolean variable, or create a Condition changes automation using:\n\n  ${answers.sensorName||'temperature'} > ${answers.setValueDefault||'28'}\n\n`;
+}
+}
+if(selectedHardware.has('pwm')){
+p+=`HARDWARE → I/O\n--------------\nAdd a PWM output.\n- Name: ${answers.outputName||'PWM output'}\n- Pin: ${answers.outputPin||'choose a PWM-capable GPIO'}\n\nDATA → VARIABLES\n----------------\nCreate a variable for the level.\n- Name: ${answers.encoderVariable||'level'}\n- Type: Integer or Float\n- Source: Constant\n- Initial value: 50\n- Minimum: 0\n- Maximum: 100\n\nSCREEN → WIDGET BINDING\n-----------------------\nBind a slider to this variable using “Both ways”.\n\nWhy: the slider changes the variable, and the PWM output follows the variable through an automation or output configuration.\n\n`;
+}
+if(selectedHardware.has('button')){
+p+=`HARDWARE → INPUTS\n-----------------\nAdd a digital input / button.\n- Name: Button\n- Pin: ${answers.buttonPin||'choose a free GPIO'}\n- Active low: usually Yes if the button connects the pin to ground\n\nDATA → AUTOMATIONS\n------------------\nAdd an automation called “Button pressed”.\n- Trigger: Digital input changes\n- Input: Button\n- Edge: Goes active\n- Action: ${answers.buttonAction==='Change screen'?'Change Screen → choose the destination screen':answers.buttonAction==='Toggle a relay'?'Set variable → toggle the relay Boolean':answers.buttonAction==='Send MQTT command'?'Publish to MQTT → your command topic':'Choose the action you need'}\n\nWhy: “Goes active” means the automation runs once when the button is pressed, rather than continuously while it is held.\n\n`;
+}
+if(selectedHardware.has('encoder')){
+p+=`HARDWARE → INPUTS\n-----------------\nAdd a rotary encoder.\n- Name: Encoder\n- Pins: A, B and optionally the push-switch pin\n\nDATA → VARIABLES\n----------------\nCreate the value it adjusts.\n- Name: ${answers.encoderVariable||'value'}\n- Type: Integer or Float\n- Source: Constant\n- Initial value: choose a sensible starting value\n\nDATA → AUTOMATIONS\n------------------\nAdd two automations:\n- Encoder turned clockwise → Add to variable: ${answers.encoderVariable||'value'} by ${answers.encoderStep||'1'}\n- Encoder turned anticlockwise → Add to variable: ${answers.encoderVariable||'value'} by -${answers.encoderStep||'1'}\n\nWhy: the encoder itself does not decide what the value means. The automations translate clockwise and anticlockwise turns into changes to your chosen variable.\n\n`;
+}
+if(selectedGoals.has('mqtt')||selectedHardware.has('mqtt_device')){
+p+=`HARDWARE → CONNECTIONS\n----------------------\nAdd an MQTT connection.\n- Broker address: your Home Assistant MQTT broker address\n- Port: commonly 1883, or 8883 for TLS\n- Username and password: only if your broker requires them\n\nDATA → VARIABLES\n----------------\nAdd a variable for the incoming value.\n- Name: ${answers.mqttVariable||'value'}\n- Type: Float, Integer or Boolean depending on the data\n- Source: MQTT topic\n- Topic: ${answers.mqttTopic||'your/topic'}\n\nSCREEN → WIDGET BINDING\n-----------------------\nBind the value to a label, gauge, chart or other widget.\n\nTo send a command:\n- Add an automation or widget event.\n- Action: Publish to MQTT.\n- Topic: ${answers.mqttCommandTopic||'your/command/topic'}\n- Payload: the value or text Home Assistant expects.\n\nWhy: MQTT topics are addresses for messages. A subscribed topic brings data in; a published topic sends a command out.\n\n`;
+}
+if(selectedGoals.has('alarms')){
+p+=`DATA → AUTOMATIONS\n------------------\nAdd an automation called “Alarm”.\n- Trigger: Condition changes\n- Condition: ${answers.alarmCondition||'temperature > 30'}\n- Edge: Becomes true\n- Actions:\n  - Show a warning widget or change a status variable\n  - Set a message variable to: ${answers.alarmMessage||'Warning'}\n  - Beep / activate a buzzer, if you have one\n${Number(answers.alarmRepeat)>0?`  - If it should repeat, use an interval automation every ${answers.alarmRepeat} seconds while the condition remains true\n`:''}\nWhy: “Condition changes” is best for an alarm because it reacts when the condition becomes true, rather than running continuously.\n\n`;
+}
+if(selectedGoals.has('save_settings')){
+p+=`DATA → VARIABLES / SETTINGS\n---------------------------\nFor any value that must survive a reboot:\n- Open the variable.\n- Tick “Save to settings”.\n- Give it a unique settings key, such as ${answers.settingsKey||'target_temperature'}.\n\nAlternatively, create a Settings entry:\n- Key: ${answers.settingsKey||'target_temperature'}\n- Type: Float, Integer, Boolean or Text\n- Default: ${answers.setValueDefault||'0'}\n\nWhy: an ordinary variable can be changed at runtime, but a saved setting is written to non-volatile storage and restored after reboot.\n\n`;
+}
+if(selectedGoals.has('internet_data')){
+p+=`NETWORK / DATA\n--------------\nUse an HTTP request, JSON source or the appropriate network integration for the data you want.\n- Create a variable for each value you want to show.\n- Bind each variable to a label, gauge, chart or icon.\n- Refresh on an interval appropriate to the data; for weather, 5–15 minutes is often enough.\n\nWhy: internet data is normally read periodically, then stored in variables so widgets can display it.\n\n`;
+}
+p+=`FINAL CHECKLIST\n---------------\n- Every sensor has a device entry and a sensible polling interval.\n- Every value shown on screen has a variable.\n- Every variable shown on screen has a widget binding.\n- Every physical output has an I/O entry.\n- Every automatic behaviour has an automation with a clear trigger and at least one action.\n- Pin numbers do not conflict with the display, touch controller, SD card, or other peripherals.\n- I2C addresses do not conflict.\n- Use the Preview / simulated inputs to test the logic before flashing hardware.\n\nNEXT STEP\n---------\nUse the generated plan as a checklist. Add one capability at a time: first make a sensor value appear on screen, then add control, then add automation. Test in Preview before connecting or powering external hardware.\n`;
+p=p.replaceAll('SCREEN → WIDGET BINDING','SCREEN → INSPECTOR → DATA BINDINGS')
+ .replace('HARDWARE → CONNECTIONS','DATA → MQTT')
+ .replace('NETWORK / DATA','DATA → WEB DATA')
+ .replace('Add an automation called “Alarm”.','Add an automation for the condition.')
+ .replace('Beep / activate a buzzer, if you have one','Use an action supported by the selected export target.')
+ .replace('Why: “Condition changes” is best for an alarm because it reacts when the condition becomes true, rather than running continuously.','Why: Condition changes runs actions when a Boolean condition changes state.');
+document.getElementById('plan').textContent=p;
+}
+document.getElementById('buildPlanButton').addEventListener('click',buildPlan);
+renderGoals();
+</script>
+</body>
+</html>
