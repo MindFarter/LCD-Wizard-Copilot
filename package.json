@@ -1,0 +1,97 @@
+{
+  "name": "lcdwizard-copilot",
+  "displayName": "LCD Wizard Copilot",
+  "description": "Community MIT extension that gives Copilot project-aware LCD Wizard guidance and board/server integration context.",
+  "version": "0.1.0",
+  "publisher": "mindfarter",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MindFarter/LCD-Wizard-Copilot.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "scripts": {
+    "test": "node --test"
+  },
+  "contributes": {
+    "commands": [
+      { "command": "lcdWizardCopilot.showProjectReport", "title": "LCD Wizard: Show project report" },
+      { "command": "lcdWizardCopilot.checkIntegration", "title": "LCD Wizard: Show connectivity context" },
+      { "command": "lcdWizardCopilot.openDocs", "title": "LCD Wizard: Open documentation topic" },
+      { "command": "lcdWizardCopilot.selectProject", "title": "LCD Wizard: Select project JSON" }
+    ],
+    "configuration": {
+      "title": "LCD Wizard Copilot",
+      "properties": {
+        "lcdWizardCopilot.projectFile": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to the LCD Wizard .slw.json file, relative to its workspace folder."
+        }
+      }
+    },
+    "languageModelTools": [
+      {
+        "name": "lcdwizard_project_report",
+        "toolReferenceName": "lcdwizardProject",
+        "displayName": "LCD Wizard project report",
+        "userDescription": "Summarizes LCD Wizard project structure with setting defaults and likely secrets omitted.",
+        "modelDescription": "Read the selected LCD Wizard .slw.json and summarize its target, hardware, screens/widgets, variables, bindings, settings, automations, and data sources. This tool is read-only and omits setting defaults and likely secrets. Call before giving project-specific LCD Wizard advice.",
+        "canBeReferencedInPrompt": true,
+        "tags": ["lcdwizard", "esp32", "iot"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string", "description": "Optional workspace-relative .slw.json path." }
+          }
+        }
+      },
+      {
+        "name": "lcdwizard_connectivity_context",
+        "toolReferenceName": "lcdwizardConnectivity",
+        "displayName": "LCD Wizard connectivity context",
+        "userDescription": "Summarizes the selected LCD Wizard transport settings and finds likely firmware/server entry points in the workspace.",
+        "modelDescription": "Summarize the selected LCD Wizard target, configured Web data and Bluetooth roles, plus likely generated firmware and server entry-point files in the workspace. Link to official transport/export documentation. Do not claim compatibility or live behavior from file presence alone.",
+        "canBeReferencedInPrompt": true,
+        "tags": ["lcdwizard", "server", "api", "bluetooth", "network"],
+        "inputSchema": { "type": "object", "properties": {} }
+      },
+      {
+        "name": "lcdwizard_docs",
+        "toolReferenceName": "lcdwizardDocs",
+        "displayName": "LCD Wizard documentation links",
+        "userDescription": "Finds official LCD Wizard documentation topics for project settings and generated code.",
+        "modelDescription": "Return brief original topic summaries and official LCD Wizard documentation links. Do not invent undocumented project behavior.",
+        "canBeReferencedInPrompt": true,
+        "tags": ["lcdwizard", "documentation"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "topic": { "type": "string", "description": "Topic name such as settings, variables, bindings, automations, Bluetooth, export, or all." }
+          },
+          "required": ["topic"]
+        }
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "lcdwizard.copilot",
+        "name": "lcdwizard",
+        "fullName": "LCD Wizard Copilot",
+        "description": "Ask about LCD Wizard projects, settings, variables, bindings, automations, hardware, exports, and server integration.",
+        "isSticky": true,
+        "commands": [
+          { "name": "project", "description": "Summarize the selected LCD Wizard project" },
+          { "name": "integration", "description": "Review selected board/server connectivity context" },
+          { "name": "server", "description": "Plan an integration using the selected LCD Wizard transport" },
+          { "name": "docs", "description": "Find official LCD Wizard documentation" }
+        ]
+      }
+    ]
+  }
+}
