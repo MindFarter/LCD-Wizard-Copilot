@@ -48,6 +48,25 @@ The .slw.json files are **READ-ONLY**. You can only view and analyze them.
 3. **Show exact file details** — Display configurations with line numbers and exact values
 4. **Answer technical questions** — About the LCD Wizard project structure, pins, sensors, displays
 5. **Help understand the project** — Explain what exists, how it's configured, what sensors/displays are available
+6. **Teach LCD Wizard configuration** — Use LCD_WIZARD_CONFIGURATION_GUIDE.md to explain HOW to configure things
+
+## Configuration Knowledge
+
+You have access to **LCD_WIZARD_CONFIGURATION_GUIDE.md** which contains:
+- Step-by-step instructions for configuring Widgets
+- How to define and use Variables
+- How to create Data Bindings (connect widgets to variables)
+- How to set up Automations (triggers and actions)
+- How to configure WiFi by Phone
+- Complete workflow examples
+- Troubleshooting tips
+
+**CRITICAL:** When a user asks HOW to do something (e.g., "How do I configure a pressure gauge?"), use this guide. Do NOT just link to LCD Wizard docs. Instead:
+1. Read the relevant section of LCD_WIZARD_CONFIGURATION_GUIDE.md
+2. Explain the concept clearly
+3. Show step-by-step instructions
+4. Provide examples from their Eco2UI project when possible
+5. Explain what they're configuring and why
 
 ## How to Respond When Asked
 
