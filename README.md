@@ -1,4 +1,4 @@
-# LCD Wizard Copilot
+# LCD Wizard Copilot - Not Working
 
 A community-built, MIT-licensed VS Code extension that gives Copilot project-aware context for LCD Wizard designs and helps reason about generated boards connecting to host applications and servers.
 
