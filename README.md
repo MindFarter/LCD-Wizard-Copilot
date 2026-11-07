@@ -29,6 +29,37 @@ In the Extension Development Host, open Copilot Chat and use `@lcdwizard` with `
 
 The extension has no runtime npm dependencies. Node.js is needed to run the included unit tests with `npm test`. The extension requires VS Code 1.95 or newer and GitHub Copilot Chat for its chat participant and language-model tools. Before Marketplace publication, set the `publisher` in `package.json` to the publishing account’s verified VS Code Marketplace publisher ID.
 
+## Agent Configuration (v0.3+)
+
+As of v0.3+, a workspace-level Copilot agent configuration is included for practical, hands-on guidance:
+
+**Files included:**
+- **copilot-instructions.md** — Configures the `@lcdwizard1` agent with exclusive LCD Wizard focus and project context
+- **LCD_WIZARD_PROJECT_SUMMARY.md** — Quick reference of current project hardware, screens, and sensors
+- **LCD_WIZARD_CONFIGURATION_GUIDE.md** (v0.4+) — Comprehensive how-to guide for actual configuration tasks
+
+**v0.4 Improvements:**
+The new `@lcdwizard1` agent now provides step-by-step instructions on:
+- Widget configuration (Labels, Sliders, Arcs, Buttons, etc.)
+- Variable definition and management
+- Data binding setup (connecting UI to data)
+- Automation creation (triggers and actions for firmware logic)
+- WiFi by Phone setup
+- Complete design-to-device workflow
+- Troubleshooting and patterns
+
+### Using @lcdwizard1
+
+Open the `LCD Wizard` folder as your VS Code workspace, then use:
+
+```
+@lcdwizard1 How do I configure a pressure gauge?
+@lcdwizard1 How do I set up WiFi by phone?
+@lcdwizard1 Show me what's in my Eco2UI project
+```
+
+The agent provides practical guidance with step-by-step instructions and examples from your project, not just documentation links.
+
 ## Limits
 
 The connectivity report is a workspace inventory and documentation guide, not a live network, BLE, firmware, or hardware test. File presence does not verify behavior. The extension does not generate server or firmware code. The formula tester uses an allow-listed parser and does not execute generated formula text as JavaScript. The webviews have network access disabled. LCD Wizard project fields can evolve, so project-specific advice should be checked against the selected project's own export and current official documentation.
